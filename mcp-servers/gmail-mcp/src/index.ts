@@ -11,11 +11,16 @@ if (!GMAIL_CREDENTIALS) {
 }
 
 function createGmailClient() {
-  const credentials = JSON.parse(readFileSync(GMAIL_CREDENTIALS!, "utf-8"));
+  const credentials = JSON.parse(readFileSync(GMAIL_CREDENTIALS!, "utf-8")) as {
+    installed?: { client_id: string; client_secret: string };
+    client_id?: string;
+    client_secret?: string;
+    refresh_token?: string;
+  };
 
   const { client_id, client_secret, refresh_token } = credentials.installed
     ? { ...credentials.installed, refresh_token: credentials.refresh_token }
-    : credentials;
+    : credentials as { client_id: string; client_secret: string; refresh_token: string };
 
   const auth = new google.auth.OAuth2(client_id, client_secret);
   auth.setCredentials({ refresh_token });

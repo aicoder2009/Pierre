@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { MessageBubble } from "./MessageBubble";
 import { Loader2 } from "lucide-react";
-import { Doc } from "../../../../convex/_generated/dataModel";
+import { Doc } from "../../../convex/_generated/dataModel";
 
 interface MessageListProps {
   messages: Doc<"messages">[];

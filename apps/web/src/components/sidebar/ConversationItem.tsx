@@ -6,7 +6,7 @@ import { useConversations } from "@/hooks/useConversation";
 import { cn } from "@/lib/utils";
 import { MessageSquare, Trash2, Archive } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { Doc } from "../../../../convex/_generated/dataModel";
+import { Doc } from "../../../convex/_generated/dataModel";
 import { useState } from "react";
 
 interface ConversationItemProps {

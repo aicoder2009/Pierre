@@ -2,7 +2,7 @@
 
 import { useUser } from "@clerk/nextjs";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+import { api } from "../../../convex/_generated/api";
 import { X, Settings, Bell, Brain, Clock } from "lucide-react";
 import { ToolToggle } from "./ToolToggle";
 import { useState, useEffect } from "react";

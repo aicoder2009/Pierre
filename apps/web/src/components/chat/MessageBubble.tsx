@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { Bot, User, Wrench, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Doc } from "../../../../convex/_generated/dataModel";
+import { Doc } from "../../../convex/_generated/dataModel";
 
 interface MessageBubbleProps {
   message: Doc<"messages">;

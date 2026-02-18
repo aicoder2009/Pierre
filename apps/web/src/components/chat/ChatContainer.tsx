@@ -3,7 +3,7 @@
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import { Bot, Loader2 } from "lucide-react";
-import { Doc } from "../../../../convex/_generated/dataModel";
+import { Doc } from "../../../convex/_generated/dataModel";
 
 interface ChatContainerProps {
   messages: Doc<"messages">[];

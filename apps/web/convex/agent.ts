@@ -45,10 +45,10 @@ Timezone: ${settings?.timezone ?? "UTC"}`;
       // Import the Agent SDK dynamically
       const { query } = await import("@anthropic-ai/claude-code");
 
-      const agentOptions: Parameters<typeof query>[0] = {
+      const queryOptions: Parameters<typeof query>[0] = {
         prompt: args.prompt,
         options: {
-          systemPrompt,
+          customSystemPrompt: systemPrompt,
           permissionMode: "bypassPermissions" as const,
           allowedTools: ["WebSearch", "WebFetch"],
           maxTurns: 10,
@@ -56,21 +56,18 @@ Timezone: ${settings?.timezone ?? "UTC"}`;
       };
 
       // If we have a session ID, resume it
-      if (conversation?.sessionId) {
-        agentOptions.options.resume = {
-          sessionId: conversation.sessionId,
-        };
+      if (conversation?.sessionId && queryOptions.options) {
+        queryOptions.options.resume = conversation.sessionId;
       }
 
       let assistantMessageId: string | null = null;
       let fullContent = "";
       let sessionId: string | null = null;
       let totalCost = 0;
-      let totalTokens = 0;
 
-      for await (const message of query(agentOptions)) {
-        if (message.type === "init") {
-          sessionId = message.sessionId;
+      for await (const message of query(queryOptions)) {
+        if (message.type === "system" && "subtype" in message && message.subtype === "init") {
+          sessionId = message.session_id;
           // Save session ID to conversation
           if (sessionId) {
             await ctx.runMutation(api.conversations.updateSessionId, {
@@ -79,34 +76,53 @@ Timezone: ${settings?.timezone ?? "UTC"}`;
             });
           }
         } else if (message.type === "assistant") {
-          fullContent += message.content;
-          // Upsert streaming message
-          const msgId = await ctx.runMutation(api.messages.upsertAssistant, {
-            conversationId: args.conversationId,
-            messageId: assistantMessageId as any,
-            content: fullContent,
-            isStreaming: true,
-          });
-          if (!assistantMessageId) {
-            assistantMessageId = msgId as any;
+          // Extract text from the assistant message content blocks
+          const contentBlocks = message.message.content;
+          let textContent = "";
+          for (const block of contentBlocks) {
+            if (block.type === "text") {
+              textContent += block.text;
+            }
           }
-        } else if (message.type === "tool_use") {
-          await ctx.runMutation(api.messages.addToolMessage, {
-            conversationId: args.conversationId,
-            toolName: message.tool_name ?? "unknown",
-            toolInput: JSON.stringify(message.tool_input ?? {}),
-            toolResult: "",
-          });
+          if (textContent) {
+            fullContent = textContent;
+            // Upsert streaming message
+            const msgId = await ctx.runMutation(api.messages.upsertAssistant, {
+              conversationId: args.conversationId,
+              messageId: assistantMessageId as any,
+              content: fullContent,
+              isStreaming: true,
+            });
+            if (!assistantMessageId) {
+              assistantMessageId = msgId as any;
+            }
+          }
+
+          // Check for tool use blocks
+          for (const block of contentBlocks) {
+            if (block.type === "tool_use") {
+              await ctx.runMutation(api.messages.addToolMessage, {
+                conversationId: args.conversationId,
+                toolName: block.name ?? "unknown",
+                toolInput: JSON.stringify(block.input ?? {}),
+                toolResult: "",
+              });
+            }
+          }
         } else if (message.type === "result") {
-          totalCost = message.cost_usd ?? 0;
-          totalTokens = message.total_tokens ?? 0;
+          totalCost = message.total_cost_usd ?? 0;
+          const totalTokens = message.usage
+            ? (message.usage.input_tokens ?? 0) + (message.usage.output_tokens ?? 0)
+            : 0;
+
+          const resultContent = "result" in message ? message.result : "";
 
           // Finalize the assistant message
           if (assistantMessageId) {
             await ctx.runMutation(api.messages.upsertAssistant, {
               conversationId: args.conversationId,
               messageId: assistantMessageId as any,
-              content: fullContent || message.content || "I'm sorry, I couldn't generate a response.",
+              content: fullContent || resultContent || "I'm sorry, I couldn't generate a response.",
               isStreaming: false,
               costUsd: totalCost,
               tokenCount: totalTokens,
@@ -115,7 +131,7 @@ Timezone: ${settings?.timezone ?? "UTC"}`;
             // No streaming happened, just create the message
             await ctx.runMutation(api.messages.upsertAssistant, {
               conversationId: args.conversationId,
-              content: message.content || fullContent || "I'm sorry, I couldn't generate a response.",
+              content: resultContent || fullContent || "I'm sorry, I couldn't generate a response.",
               isStreaming: false,
               costUsd: totalCost,
               tokenCount: totalTokens,
@@ -130,8 +146,8 @@ Timezone: ${settings?.timezone ?? "UTC"}`;
         let title = args.prompt.slice(0, 50);
         try {
           for await (const msg of query({ prompt: titlePrompt, options: { maxTurns: 1 } })) {
-            if (msg.type === "result" && msg.content) {
-              title = msg.content.trim().replace(/^["']|["']$/g, "");
+            if (msg.type === "result" && "result" in msg && msg.result) {
+              title = msg.result.trim().replace(/^["']|["']$/g, "");
             }
           }
         } catch {
@@ -143,7 +159,7 @@ Timezone: ${settings?.timezone ?? "UTC"}`;
         });
       }
 
-      return { success: true, sessionId, cost: totalCost, tokens: totalTokens };
+      return { success: true, sessionId, cost: totalCost };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       // Save error as assistant message

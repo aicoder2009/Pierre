@@ -2,7 +2,7 @@
 
 import { formatDistanceToNow } from "date-fns";
 import { Trash2, Tag } from "lucide-react";
-import { Doc } from "../../../../convex/_generated/dataModel";
+import { Doc } from "../../../convex/_generated/dataModel";
 
 interface MemoryItemProps {
   memory: Doc<"memories">;
