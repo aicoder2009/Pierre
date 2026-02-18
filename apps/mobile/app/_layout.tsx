@@ -3,7 +3,7 @@ import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { ConvexReactClient } from "convex/react";
 import { useAuth } from "@clerk/clerk-expo";
 import { tokenCache } from "@/lib/token-cache";
-import { Slot } from "expo-router";
+import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 
 const convex = new ConvexReactClient(
@@ -22,7 +22,21 @@ export default function RootLayout() {
       <ClerkLoaded>
         <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
           <StatusBar style="light" />
-          <Slot />
+          <Stack
+            screenOptions={{
+              headerStyle: { backgroundColor: "#0a0a0a" },
+              headerTintColor: "#fff",
+              headerTitleStyle: { fontWeight: "600" },
+              contentStyle: { backgroundColor: "#0a0a0a" },
+            }}
+          >
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="chat/[id]"
+              options={{ title: "Pierre", headerBackTitle: "Chats" }}
+            />
+          </Stack>
         </ConvexProviderWithClerk>
       </ClerkLoaded>
     </ClerkProvider>

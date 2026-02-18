@@ -4,11 +4,18 @@ import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useConversations } from "@/hooks/useConversation";
 import { useAgent } from "@/hooks/useAgent";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { MessageInput } from "@/components/chat/MessageInput";
-import { Bot } from "lucide-react";
+import { Bot, Mail, Hash, Brain, Globe } from "lucide-react";
 import { useState } from "react";
+
+const SUGGESTIONS = [
+  { icon: Mail, title: "Summarize my emails", desc: "Check for important unread messages" },
+  { icon: Hash, title: "What's new on Slack?", desc: "Get a summary of recent activity" },
+  { icon: Brain, title: "Remember something", desc: "Save a fact or preference for later" },
+  { icon: Globe, title: "Research a topic", desc: "Search the web and summarize findings" },
+];
 
 export default function NewChatPage() {
   const { user } = useUser();
@@ -16,7 +23,10 @@ export default function NewChatPage() {
   const { create } = useConversations(user?.id);
   const { run, isRunning } = useAgent();
   const sendMessage = useMutation(api.messages.send);
+  const settings = useQuery(api.settings.get, user?.id ? { userId: user.id } : "skip");
   const [isCreating, setIsCreating] = useState(false);
+
+  const displayName = settings?.displayName || user?.firstName || null;
 
   const handleSend = async (content: string) => {
     if (!user?.id || isCreating) return;
@@ -42,35 +52,31 @@ export default function NewChatPage() {
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-4">
       <div className="max-w-2xl w-full space-y-8">
-        <div className="text-center space-y-4">
-          <div className="mx-auto w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-            <Bot className="w-8 h-8 text-primary" />
+        <div className="text-center space-y-3">
+          <div className="mx-auto w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+            <Bot className="w-7 h-7 text-primary" />
           </div>
           <h1 className="text-3xl font-semibold tracking-tight">
-            Hi, I&apos;m Pierre
+            {displayName ? `Hi, ${displayName}` : "Hi there"} 👋
           </h1>
-          <p className="text-muted-foreground text-lg">
-            Your personal AI assistant. How can I help you today?
+          <p className="text-muted-foreground">
+            I&apos;m Pierre, your personal AI assistant. How can I help you today?
           </p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          {[
-            { title: "Summarize my emails", desc: "Check for important unread messages" },
-            { title: "What's new on Slack?", desc: "Get a summary of recent activity" },
-            { title: "Remember something", desc: "Save a fact or preference for later" },
-            { title: "Research a topic", desc: "Search the web and summarize findings" },
-          ].map((suggestion) => (
+          {SUGGESTIONS.map(({ icon: Icon, title, desc }) => (
             <button
-              key={suggestion.title}
-              onClick={() => handleSend(suggestion.title)}
-              className="text-left p-4 rounded-xl border border-border hover:bg-accent transition-colors"
+              key={title}
+              onClick={() => handleSend(title)}
+              className="text-left p-4 rounded-xl border border-border/60 hover:border-border hover:bg-accent/50 transition-all group"
               disabled={isCreating || isRunning}
             >
-              <p className="font-medium text-sm">{suggestion.title}</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {suggestion.desc}
-              </p>
+              <div className="flex items-center gap-2 mb-1.5">
+                <Icon className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                <p className="font-medium text-sm">{title}</p>
+              </div>
+              <p className="text-xs text-muted-foreground">{desc}</p>
             </button>
           ))}
         </div>

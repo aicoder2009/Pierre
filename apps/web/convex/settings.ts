@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalQuery } from "./_generated/server";
 
 export const get = query({
   args: { userId: v.string() },
@@ -48,5 +48,16 @@ export const upsert = mutation({
       pushNotificationsEnabled: args.pushNotificationsEnabled ?? false,
       preferredModel: args.preferredModel,
     });
+  },
+});
+
+// Internal: find all users who have morning briefing enabled
+export const listWithBriefingEnabled = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db
+      .query("userSettings")
+      .filter((q) => q.eq(q.field("morningBriefingEnabled"), true))
+      .collect();
   },
 });

@@ -16,12 +16,26 @@ export const run = action({
       id: args.conversationId,
     });
 
-    // Get persistent memories for context
-    const memories = await ctx.runQuery(api.memories.list, {
+    // Get persistent memories for context (most important first)
+    const listedMemories = await ctx.runQuery(api.memories.list, {
       userId: args.userId,
       type: "persistent",
-      limit: 20,
+      limit: 15,
     });
+
+    // Also search for memories relevant to the current prompt
+    const searchedMemories = args.prompt.length > 3
+      ? await ctx.runQuery(api.memories.search, {
+          userId: args.userId,
+          query: args.prompt.slice(0, 200),
+          limit: 10,
+        })
+      : [];
+
+    // De-duplicate by ID, preserving order (listed first, then search additions)
+    const seenIds = new Set(listedMemories.map((m) => m._id));
+    const uniqueSearched = searchedMemories.filter((m) => !seenIds.has(m._id));
+    const memories = [...listedMemories, ...uniqueSearched];
 
     const memoryContext = memories.length > 0
       ? "\n\nRelevant memories about the user:\n" +
