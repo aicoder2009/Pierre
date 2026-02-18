@@ -1,7 +1,7 @@
-import { ClerkProvider, ClerkLoaded } from "@clerk/clerk-expo";
+import "../global.css";
+import { ClerkProvider, ClerkLoaded, useAuth } from "@clerk/clerk-expo";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { ConvexReactClient } from "convex/react";
-import { useAuth } from "@clerk/clerk-expo";
 import { tokenCache } from "@/lib/token-cache";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -28,13 +28,17 @@ export default function RootLayout() {
               headerTintColor: "#fff",
               headerTitleStyle: { fontWeight: "600" },
               contentStyle: { backgroundColor: "#0a0a0a" },
+              animation: "slide_from_right",
             }}
           >
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
             <Stack.Screen
               name="chat/[id]"
-              options={{ title: "Pierre", headerBackTitle: "Chats" }}
+              options={{
+                title: "Pierre",
+                headerBackTitle: "Chats",
+              }}
             />
           </Stack>
         </ConvexProviderWithClerk>

@@ -1,6 +1,6 @@
 import { useSignIn } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 
 export default function SignInScreen() {
@@ -17,22 +18,34 @@ export default function SignInScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSignIn = async () => {
-    if (!isLoaded) return;
+  const handleSignIn = useCallback(async () => {
+    if (!isLoaded || loading) return;
+    setError("");
+    setLoading(true);
     try {
       const result = await signIn.create({
-        identifier: email,
+        identifier: email.trim(),
         password,
       });
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
         router.replace("/(tabs)");
+      } else {
+        // Handle other statuses (e.g., needs_first_factor, needs_second_factor)
+        setError("Additional verification required. Please try again.");
       }
     } catch (err: any) {
-      setError(err.errors?.[0]?.message ?? "Sign in failed");
+      const message =
+        err?.errors?.[0]?.longMessage ??
+        err?.errors?.[0]?.message ??
+        "Sign in failed. Please check your credentials.";
+      setError(message);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [isLoaded, loading, signIn, email, password, setActive, router]);
 
   return (
     <KeyboardAvoidingView
@@ -52,7 +65,11 @@ export default function SignInScreen() {
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
+          autoCorrect={false}
           keyboardType="email-address"
+          textContentType="emailAddress"
+          returnKeyType="next"
+          editable={!loading}
         />
         <TextInput
           style={styles.input}
@@ -61,14 +78,32 @@ export default function SignInScreen() {
           value={password}
           onChangeText={setPassword}
           secureTextEntry
+          textContentType="password"
+          returnKeyType="done"
+          onSubmitEditing={handleSignIn}
+          editable={!loading}
         />
 
-        <TouchableOpacity style={styles.button} onPress={handleSignIn}>
-          <Text style={styles.buttonText}>Sign In</Text>
+        <TouchableOpacity
+          style={[styles.button, loading && styles.buttonDisabled]}
+          onPress={handleSignIn}
+          disabled={loading}
+          activeOpacity={0.7}
+        >
+          {loading ? (
+            <ActivityIndicator size="small" color="#0a0a0a" />
+          ) : (
+            <Text style={styles.buttonText}>Sign In</Text>
+          )}
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.push("/(auth)/sign-up")}>
-          <Text style={styles.link}>Don&apos;t have an account? Sign up</Text>
+        <TouchableOpacity
+          onPress={() => router.push("/(auth)/sign-up")}
+          disabled={loading}
+        >
+          <Text style={styles.link}>
+            Don&apos;t have an account? Sign up
+          </Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -78,9 +113,26 @@ export default function SignInScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0a0a0a" },
   inner: { flex: 1, justifyContent: "center", padding: 24 },
-  title: { fontSize: 32, fontWeight: "bold", color: "#fff", textAlign: "center", marginBottom: 8 },
-  subtitle: { fontSize: 16, color: "#888", textAlign: "center", marginBottom: 32 },
-  error: { color: "#ef4444", textAlign: "center", marginBottom: 16, fontSize: 14 },
+  title: {
+    fontSize: 32,
+    fontWeight: "bold",
+    color: "#fff",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: "#888",
+    textAlign: "center",
+    marginBottom: 32,
+  },
+  error: {
+    color: "#ef4444",
+    textAlign: "center",
+    marginBottom: 16,
+    fontSize: 14,
+    lineHeight: 20,
+  },
   input: {
     backgroundColor: "#1a1a1a",
     borderWidth: 1,
@@ -98,6 +150,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 8,
     marginBottom: 16,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
   buttonText: { color: "#0a0a0a", fontSize: 16, fontWeight: "600" },
   link: { color: "#888", textAlign: "center", fontSize: 14 },

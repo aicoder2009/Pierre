@@ -23,8 +23,8 @@ export function ChatContainer({
     <div className="flex-1 flex flex-col h-full">
       {/* Slim title bar */}
       {title && title !== "New conversation" && (
-        <div className="shrink-0 px-4 py-2.5 border-b border-border/50">
-          <p className="text-sm font-medium text-center text-foreground/70 truncate max-w-sm mx-auto">
+        <div className="shrink-0 px-4 py-2.5 border-b border-border/40">
+          <p className="text-sm font-medium text-center text-foreground/60 truncate max-w-md mx-auto">
             {title}
           </p>
         </div>
@@ -35,15 +35,15 @@ export function ChatContainer({
         <MessageList messages={messages} isLoading={isLoading} />
       </div>
 
-      {/* Input — matches ChatGPT styling */}
+      {/* Input */}
       <div className="shrink-0 px-4 pb-6 pt-2">
         <div className="max-w-3xl mx-auto">
           <MessageInput
             onSend={onSend}
             disabled={isRunning}
-            placeholder="Message Pierre..."
+            placeholder={isRunning ? "Pierre is thinking..." : "Message Pierre..."}
           />
-          <p className="text-center text-xs text-muted-foreground/40 mt-3">
+          <p className="text-center text-[11px] text-muted-foreground/30 mt-3">
             Pierre can make mistakes. Verify important information.
           </p>
         </div>
