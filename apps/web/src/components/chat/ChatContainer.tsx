@@ -2,7 +2,6 @@
 
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
-import { Bot, Loader2 } from "lucide-react";
 import { Doc } from "../../../convex/_generated/dataModel";
 
 interface ChatContainerProps {
@@ -22,35 +21,31 @@ export function ChatContainer({
 }: ChatContainerProps) {
   return (
     <div className="flex-1 flex flex-col h-full">
-      {/* Header */}
-      <div className="border-b border-border px-6 py-3 flex items-center gap-3 shrink-0">
-        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-          <Bot className="w-4 h-4 text-primary" />
+      {/* Slim title bar */}
+      {title && title !== "New conversation" && (
+        <div className="shrink-0 px-4 py-2.5 border-b border-border/50">
+          <p className="text-sm font-medium text-center text-foreground/70 truncate max-w-sm mx-auto">
+            {title}
+          </p>
         </div>
-        <div>
-          <h2 className="font-medium text-sm">{title ?? "Pierre"}</h2>
-          {isRunning && (
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              Thinking...
-            </p>
-          )}
-        </div>
-      </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-hidden">
         <MessageList messages={messages} isLoading={isLoading} />
       </div>
 
-      {/* Input */}
-      <div className="border-t border-border p-4 shrink-0">
+      {/* Input — matches ChatGPT styling */}
+      <div className="shrink-0 px-4 pb-6 pt-2">
         <div className="max-w-3xl mx-auto">
           <MessageInput
             onSend={onSend}
             disabled={isRunning}
             placeholder="Message Pierre..."
           />
+          <p className="text-center text-xs text-muted-foreground/40 mt-3">
+            Pierre can make mistakes. Verify important information.
+          </p>
         </div>
       </div>
     </div>

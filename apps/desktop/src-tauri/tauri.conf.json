@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.pierre.app",
   "build": {
+    "beforeDevCommand": "cd ../../web && npm run dev",
     "devUrl": "http://localhost:3000",
     "frontendDist": "../../web/.next"
   },
@@ -11,10 +12,16 @@
     "windows": [
       {
         "title": "Pierre",
-        "width": 1200,
-        "height": 800,
+        "width": 1280,
+        "height": 820,
+        "minWidth": 900,
+        "minHeight": 600,
         "center": true,
-        "decorations": true
+        "decorations": true,
+        "hiddenTitle": true,
+        "titleBarStyle": "overlay",
+        "resizable": true,
+        "fullscreenable": true
       }
     ],
     "macOSPrivateApi": false,

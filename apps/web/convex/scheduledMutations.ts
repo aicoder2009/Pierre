@@ -1,3 +1,4 @@
+import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 
 export const archiveOldSessions = internalMutation({
@@ -21,5 +22,21 @@ export const archiveOldSessions = internalMutation({
     }
 
     console.log(`Archived ${oldMemories.length} old session memories`);
+  },
+});
+
+export const logBriefingTask = internalMutation({
+  args: {
+    userId: v.string(),
+    conversationId: v.id("conversations"),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("scheduledTasks", {
+      userId: args.userId,
+      taskType: "morningBriefing",
+      status: "running",
+      scheduledFor: Date.now(),
+      createdAt: Date.now(),
+    });
   },
 });

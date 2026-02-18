@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useNavigation } from "expo-router";
 import { useUser } from "@clerk/clerk-expo";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -18,6 +18,7 @@ import { ChatInput } from "@/components/ChatInput";
 export default function ChatScreen() {
   const { id } = useLocalSearchParams();
   const { user } = useUser();
+  const navigation = useNavigation();
   const conversationId = id as Id<"conversations">;
 
   const messages = useQuery(api.messages.list, { conversationId });
@@ -27,6 +28,13 @@ export default function ChatScreen() {
 
   const [isRunning, setIsRunning] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+
+  // Update header title when conversation title loads
+  useEffect(() => {
+    if (conversation?.title) {
+      navigation.setOptions({ title: conversation.title });
+    }
+  }, [conversation?.title, navigation]);
 
   useEffect(() => {
     if (messages && messages.length > 0) {
