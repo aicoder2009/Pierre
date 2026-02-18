@@ -136,7 +136,7 @@ async function runWithClaudeCode(
   const projectRoot = path.resolve(process.cwd());
 
   const allowedTools: string[] = ["WebSearch", "WebFetch"];
-  // Add MCP tool names if memory is enabled
+  // Add MCP tool names based on enabled integrations
   if (enabledTools.includes("memory")) {
     allowedTools.push(
       "mcp__memory__memory_search",
@@ -144,6 +144,22 @@ async function runWithClaudeCode(
       "mcp__memory__memory_update",
       "mcp__memory__memory_delete",
       "mcp__memory__memory_list"
+    );
+  }
+  if (enabledTools.includes("slack")) {
+    allowedTools.push(
+      "mcp__slack__slack_search_messages",
+      "mcp__slack__slack_list_channels",
+      "mcp__slack__slack_read_channel",
+      "mcp__slack__slack_get_unread"
+    );
+  }
+  if (enabledTools.includes("gmail")) {
+    allowedTools.push(
+      "mcp__gmail__gmail_search",
+      "mcp__gmail__gmail_read_email",
+      "mcp__gmail__gmail_list_unread",
+      "mcp__gmail__gmail_list_labels"
     );
   }
 
@@ -163,6 +179,32 @@ async function runWithClaudeCode(
       env: {
         CONVEX_URL: convexUrl,
         USER_ID: args.userId,
+      },
+    };
+  }
+  if (enabledTools.includes("slack") && process.env.SLACK_TOKEN) {
+    const slackMcpPath = path.resolve(
+      projectRoot,
+      "mcp-servers/slack-mcp/dist/index.js"
+    );
+    mcpServers.slack = {
+      command: "node",
+      args: [slackMcpPath],
+      env: {
+        SLACK_TOKEN: process.env.SLACK_TOKEN,
+      },
+    };
+  }
+  if (enabledTools.includes("gmail") && process.env.GMAIL_CREDENTIALS) {
+    const gmailMcpPath = path.resolve(
+      projectRoot,
+      "mcp-servers/gmail-mcp/dist/index.js"
+    );
+    mcpServers.gmail = {
+      command: "node",
+      args: [gmailMcpPath],
+      env: {
+        GMAIL_CREDENTIALS: process.env.GMAIL_CREDENTIALS,
       },
     };
   }
@@ -340,8 +382,66 @@ async function runWithAnthropicAPI(
       ]
     : [];
 
+  // Slack tools (Anthropic API path - calls Slack Web API directly)
+  const slackTools: any[] =
+    enabledTools.includes("slack") && process.env.SLACK_TOKEN
+      ? [
+          {
+            name: "slack_search_messages",
+            description: "Search Slack messages with a query string.",
+            input_schema: {
+              type: "object",
+              properties: {
+                query: { type: "string", description: "Search query" },
+                count: { type: "number", description: "Number of results (default 20)" },
+              },
+              required: ["query"],
+            },
+          },
+          {
+            name: "slack_get_unread",
+            description: "Get unread Slack messages and mentions.",
+            input_schema: {
+              type: "object",
+              properties: {
+                limit: { type: "number", description: "Max results (default 20)" },
+              },
+            },
+          },
+        ]
+      : [];
+
+  // Gmail tools (Anthropic API path - calls Gmail API directly)
+  const gmailTools: any[] =
+    enabledTools.includes("gmail") && process.env.GMAIL_CREDENTIALS
+      ? [
+          {
+            name: "gmail_search",
+            description: "Search emails with Gmail query syntax (e.g., 'from:someone subject:hello').",
+            input_schema: {
+              type: "object",
+              properties: {
+                query: { type: "string", description: "Gmail search query" },
+                maxResults: { type: "number", description: "Max results (default 10)" },
+              },
+              required: ["query"],
+            },
+          },
+          {
+            name: "gmail_list_unread",
+            description: "List unread emails.",
+            input_schema: {
+              type: "object",
+              properties: {
+                maxResults: { type: "number", description: "Max results (default 10)" },
+              },
+            },
+          },
+        ]
+      : [];
+
   // Build tools
-  const tools: any[] = [...memoryTools];
+  const tools: any[] = [...memoryTools, ...slackTools, ...gmailTools];
   if (enabledTools.includes("web_search")) {
     tools.push({
       type: "web_search_20250305",
@@ -467,6 +567,100 @@ async function executeTool(
         source: "agent",
       });
       return `Memory saved (id: ${id}).`;
+    }
+    case "slack_search_messages": {
+      try {
+        const { WebClient } = await import("@slack/web-api");
+        const slack = new WebClient(process.env.SLACK_TOKEN);
+        const result = await slack.search.messages({
+          query: input.query,
+          count: input.count ?? 20,
+        });
+        const matches = result.messages?.matches ?? [];
+        return JSON.stringify(
+          matches.slice(0, 10).map((m: any) => ({
+            channel: m.channel?.name ?? "unknown",
+            author: m.username ?? m.user ?? "unknown",
+            text: m.text?.slice(0, 300) ?? "",
+            timestamp: m.ts ? new Date(parseFloat(m.ts) * 1000).toISOString() : "",
+          })),
+          null,
+          2
+        );
+      } catch (e: any) {
+        return `Slack search error: ${e.message}`;
+      }
+    }
+    case "slack_get_unread": {
+      try {
+        const { WebClient } = await import("@slack/web-api");
+        const slack = new WebClient(process.env.SLACK_TOKEN);
+        const channels = await slack.conversations.list({ limit: 50, types: "public_channel,private_channel,im" });
+        const unread: any[] = [];
+        for (const ch of (channels.channels ?? []).slice(0, 20)) {
+          if (!ch.id) continue;
+          try {
+            const info = await slack.conversations.info({ channel: ch.id });
+            const count = (info.channel as any)?.unread_count ?? 0;
+            if (count > 0) unread.push({ channel: ch.name ?? ch.id, unreadCount: count });
+          } catch { /* skip inaccessible channels */ }
+        }
+        return unread.length > 0 ? JSON.stringify(unread, null, 2) : "No unread messages.";
+      } catch (e: any) {
+        return `Slack unread error: ${e.message}`;
+      }
+    }
+    case "gmail_search": {
+      try {
+        const { google } = await import("googleapis");
+        const { readFileSync } = await import("node:fs");
+        const creds = JSON.parse(readFileSync(process.env.GMAIL_CREDENTIALS!, "utf-8"));
+        const gmailCreds = creds.installed
+          ? { client_id: creds.installed.client_id, client_secret: creds.installed.client_secret, refresh_token: creds.refresh_token }
+          : { client_id: creds.client_id, client_secret: creds.client_secret, refresh_token: creds.refresh_token };
+        const { client_id, client_secret, refresh_token } = gmailCreds;
+        const auth = new google.auth.OAuth2(client_id, client_secret);
+        auth.setCredentials({ refresh_token });
+        const gmail = google.gmail({ version: "v1", auth });
+        const list = await gmail.users.messages.list({ userId: "me", q: input.query, maxResults: input.maxResults ?? 10 });
+        const msgs = await Promise.all(
+          (list.data.messages ?? []).map(async (m) => {
+            const d = await gmail.users.messages.get({ userId: "me", id: m.id!, format: "metadata", metadataHeaders: ["Subject", "From", "Date"] });
+            const headers = d.data.payload?.headers ?? [];
+            const get = (n: string) => headers.find((h: any) => h.name.toLowerCase() === n.toLowerCase())?.value ?? "";
+            return { subject: get("Subject"), from: get("From"), date: get("Date"), snippet: d.data.snippet ?? "" };
+          })
+        );
+        return JSON.stringify(msgs, null, 2);
+      } catch (e: any) {
+        return `Gmail search error: ${e.message}`;
+      }
+    }
+    case "gmail_list_unread": {
+      try {
+        const { google } = await import("googleapis");
+        const { readFileSync } = await import("node:fs");
+        const creds = JSON.parse(readFileSync(process.env.GMAIL_CREDENTIALS!, "utf-8"));
+        const gmailCreds = creds.installed
+          ? { client_id: creds.installed.client_id, client_secret: creds.installed.client_secret, refresh_token: creds.refresh_token }
+          : { client_id: creds.client_id, client_secret: creds.client_secret, refresh_token: creds.refresh_token };
+        const { client_id, client_secret, refresh_token } = gmailCreds;
+        const auth = new google.auth.OAuth2(client_id, client_secret);
+        auth.setCredentials({ refresh_token });
+        const gmail = google.gmail({ version: "v1", auth });
+        const list = await gmail.users.messages.list({ userId: "me", q: "is:unread", maxResults: input.maxResults ?? 10 });
+        const msgs = await Promise.all(
+          (list.data.messages ?? []).map(async (m) => {
+            const d = await gmail.users.messages.get({ userId: "me", id: m.id!, format: "metadata", metadataHeaders: ["Subject", "From", "Date"] });
+            const headers = d.data.payload?.headers ?? [];
+            const get = (n: string) => headers.find((h: any) => h.name.toLowerCase() === n.toLowerCase())?.value ?? "";
+            return { subject: get("Subject"), from: get("From"), date: get("Date"), snippet: d.data.snippet ?? "" };
+          })
+        );
+        return msgs.length > 0 ? JSON.stringify(msgs, null, 2) : "No unread emails.";
+      } catch (e: any) {
+        return `Gmail unread error: ${e.message}`;
+      }
     }
     default:
       return `Unknown tool: ${toolUse.name}`;
