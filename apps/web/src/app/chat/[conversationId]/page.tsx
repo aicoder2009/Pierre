@@ -8,6 +8,7 @@ import { useMessages } from "@/hooks/useMessages";
 import { useConversation } from "@/hooks/useConversation";
 import { useAgent } from "@/hooks/useAgent";
 import { ChatContainer } from "@/components/chat/ChatContainer";
+import { Loader2 } from "lucide-react";
 
 export default function ConversationPage() {
   const params = useParams();
@@ -17,7 +18,7 @@ export default function ConversationPage() {
 
   const { conversation, isLoading: convLoading } = useConversation(conversationId);
   const { messages, isLoading, send } = useMessages(conversationId);
-  const { run, isRunning } = useAgent();
+  const { run, isRunning, error, clearError } = useAgent();
 
   // Redirect to /chat if the conversation doesn't exist (after loading)
   useEffect(() => {
@@ -32,6 +33,15 @@ export default function ConversationPage() {
     run(conversationId, user.id, content);
   };
 
+  // Show a loading skeleton while the conversation record itself is loading
+  if (convLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
     <ChatContainer
       messages={messages}
@@ -39,6 +49,8 @@ export default function ConversationPage() {
       isRunning={isRunning}
       onSend={handleSend}
       title={conversation?.title}
+      error={error}
+      onDismissError={clearError}
     />
   );
 }

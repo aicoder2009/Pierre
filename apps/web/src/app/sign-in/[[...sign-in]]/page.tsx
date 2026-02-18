@@ -10,7 +10,7 @@ export default function SignInPage() {
             card: "bg-card border border-border shadow-xl",
           },
         }}
-        afterSignInUrl="/chat"
+        forceRedirectUrl="/chat"
       />
     </div>
   );

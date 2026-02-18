@@ -7,7 +7,7 @@ import { useAgent } from "@/hooks/useAgent";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { MessageInput } from "@/components/chat/MessageInput";
-import { Bot, Mail, Hash, Brain, Globe } from "lucide-react";
+import { Bot, Mail, Hash, Brain, Globe, AlertCircle, X } from "lucide-react";
 import { useState } from "react";
 
 const SUGGESTIONS = [
@@ -21,7 +21,7 @@ export default function NewChatPage() {
   const { user } = useUser();
   const router = useRouter();
   const { create } = useConversations(user?.id);
-  const { run, isRunning } = useAgent();
+  const { run, isRunning, error, clearError } = useAgent();
   const sendMessage = useMutation(api.messages.send);
   const settings = useQuery(api.settings.get, user?.id ? { userId: user.id } : "skip");
   const [isCreating, setIsCreating] = useState(false);
@@ -44,10 +44,14 @@ export default function NewChatPage() {
       router.push(`/chat/${conversationId}`);
 
       run(conversationId, user.id, content);
+    } catch (err) {
+      console.error("[NewChatPage] Failed to create conversation:", err);
     } finally {
       setIsCreating(false);
     }
   };
+
+  const isBusy = isCreating || isRunning;
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-4">
@@ -57,7 +61,7 @@ export default function NewChatPage() {
             <Bot className="w-7 h-7 text-primary" />
           </div>
           <h1 className="text-3xl font-semibold tracking-tight">
-            {displayName ? `Hi, ${displayName}` : "Hi there"} 👋
+            {displayName ? `Hi, ${displayName}` : "Hi there"}
           </h1>
           <p className="text-muted-foreground">
             I&apos;m Pierre, your personal AI assistant. How can I help you today?
@@ -69,8 +73,8 @@ export default function NewChatPage() {
             <button
               key={title}
               onClick={() => handleSend(title)}
-              className="text-left p-4 rounded-xl border border-border/60 hover:border-border hover:bg-accent/50 transition-all group"
-              disabled={isCreating || isRunning}
+              className="text-left p-4 rounded-xl border border-border/60 hover:border-border hover:bg-accent/50 transition-all group disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-border/60 disabled:hover:bg-transparent"
+              disabled={isBusy}
             >
               <div className="flex items-center gap-2 mb-1.5">
                 <Icon className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
@@ -81,9 +85,23 @@ export default function NewChatPage() {
           ))}
         </div>
 
+        {/* Error banner */}
+        {error && (
+          <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span className="flex-1 truncate">{error}</span>
+            <button
+              onClick={clearError}
+              className="shrink-0 p-0.5 rounded hover:bg-destructive/20 transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         <MessageInput
           onSend={handleSend}
-          disabled={isCreating || isRunning}
+          disabled={isBusy}
           placeholder="Message Pierre..."
         />
       </div>

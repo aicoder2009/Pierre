@@ -4,20 +4,28 @@ import { ClerkProvider, useAuth } from "@clerk/nextjs";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { ConvexReactClient } from "convex/react";
 import { dark } from "@clerk/themes";
-import { ReactNode, useMemo } from "react";
+import { ReactNode } from "react";
 
-function useConvexClient() {
-  return useMemo(
-    () =>
-      new ConvexReactClient(
-        process.env.NEXT_PUBLIC_CONVEX_URL ?? "https://placeholder.convex.cloud"
-      ),
-    []
-  );
+// Module-level singleton -- safe across re-renders and React Strict Mode.
+// Guarded with typeof window check so the server build doesn't blow up on
+// missing env vars during static analysis.
+let convex: ConvexReactClient | null = null;
+
+function getConvexClient(): ConvexReactClient {
+  if (!convex) {
+    const url = process.env.NEXT_PUBLIC_CONVEX_URL;
+    if (!url) {
+      throw new Error(
+        "NEXT_PUBLIC_CONVEX_URL is not set. Add it to your .env.local file."
+      );
+    }
+    convex = new ConvexReactClient(url);
+  }
+  return convex;
 }
 
 export function ConvexClientProvider({ children }: { children: ReactNode }) {
-  const convex = useConvexClient();
+  const client = getConvexClient();
 
   return (
     <ClerkProvider
@@ -30,7 +38,7 @@ export function ConvexClientProvider({ children }: { children: ReactNode }) {
         },
       }}
     >
-      <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+      <ConvexProviderWithClerk client={client} useAuth={useAuth}>
         {children}
       </ConvexProviderWithClerk>
     </ClerkProvider>
