@@ -1,13 +1,15 @@
 "use client";
 
 import { UserButton, useUser } from "@clerk/nextjs";
+import { Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface UserMenuProps {
   isCollapsed: boolean;
+  onSettingsClick?: () => void;
 }
 
-export function UserMenu({ isCollapsed }: UserMenuProps) {
+export function UserMenu({ isCollapsed, onSettingsClick }: UserMenuProps) {
   const { user } = useUser();
 
   return (
@@ -26,11 +28,20 @@ export function UserMenu({ isCollapsed }: UserMenuProps) {
         }}
       />
       {!isCollapsed && (
-        <div className="flex-1 min-w-0">
-          <p className="text-sm truncate text-sidebar-foreground">
-            {user?.firstName ?? user?.username ?? "User"}
-          </p>
-        </div>
+        <>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm truncate text-sidebar-foreground">
+              {user?.firstName ?? user?.username ?? "User"}
+            </p>
+          </div>
+          <button
+            onClick={onSettingsClick}
+            className="p-1.5 rounded-lg hover:bg-sidebar-accent transition-colors text-sidebar-foreground"
+            aria-label="Settings"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+        </>
       )}
     </div>
   );
